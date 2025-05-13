@@ -27,10 +27,6 @@ import java.util.*
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private lateinit var speechRecognizer: SpeechRecognizer
-    private var actualNote: String = ""
-
-    private lateinit var noteDialog: NoteDialogFragment
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,70 +35,22 @@ class MainActivity : AppCompatActivity() {
 
         // Solicitar permiso de audio
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
+            != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1)
         }
 
-        // Botón para iniciar dictado
+        // Mostrar el diálogo de notas
         binding.btnStartVoice.setOnClickListener {
-            noteDialog = NoteDialogFragment()
+            val noteDialog = NoteDialogFragment()
             noteDialog.show(supportFragmentManager, "note_dialog")
-            startListening()
         }
 
-        // Inicializar SpeechRecognizer
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
-
-        // Botón para ver notas guardadas
+        // Ir a la vista de notas
         binding.btnNotes.setOnClickListener {
             val intent = Intent(this, NotesActivity::class.java)
             startActivity(intent)
         }
     }
-
-    private fun startListening() {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-        }
-
-        speechRecognizer.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) {}
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
-            override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() {
-                // Ya no usamos tvListening aquí
-            }
-
-            override fun onError(error: Int) {
-                noteDialog.mostrarResultadoReconocido("Error al reconocer la voz")
-            }
-
-            override fun onResults(results: Bundle?) {
-                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                val text = matches?.get(0) ?: "No se reconoció nada"
-                binding.tvNoteContent.text = text
-                actualNote = text
-                noteDialog.mostrarResultadoReconocido(text)
-            }
-
-            override fun onPartialResults(partialResults: Bundle?) {
-                val partial = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                noteDialog.mostrarResultadoReconocido(partial?.get(0) ?: "")
-            }
-
-            override fun onEvent(eventType: Int, params: Bundle?) {}
-        })
-
-        speechRecognizer.startListening(intent)
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        speechRecognizer.destroy()
-    }
 }
+
 

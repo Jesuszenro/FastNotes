@@ -6,23 +6,32 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
-class NotesAdapter(private val notas: List<String>) : RecyclerView.Adapter<NotesAdapter.NoteViewHolder>() {
+class NotesAdapter(private val notas: MutableList<Note>) : RecyclerView.Adapter<NotesAdapter.NoteViewHolder>() {
 
     class NoteViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-            //Views of notes
-        val content: TextView = itemView.findViewById(R.id.tvNoteContent)
+            //Vista de las notas
+            val content: TextView = itemView.findViewById(R.id.tvNoteContent)
+            val title: TextView = itemView.findViewById(R.id.tvNoteTitle)
+            val category: TextView = itemView.findViewById(R.id.tvNoteCategory)
     }
-        //Creates the view
+        //Crear la vista
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): NoteViewHolder {
-            //Inflates the layout for each item
+            //Inflar el layout de la nota
         val view = LayoutInflater.from(parent.context).inflate(R.layout.note_item, parent, false)
         return NoteViewHolder(view)
     }
 
-        //Binds the data to the views
+        //Llenas los datos en la vista
     override fun onBindViewHolder(holder: NoteViewHolder, position: Int) {
-        holder.content.text = notas[position]
+            val nota = notas[position]
+            holder.title.text = nota.title
+            holder.category.text = "Categoría: ${nota.category}"
+            holder.content.text = nota.content
     }
-
+    fun updateNotas(nuevasNotas: List<Note>) {
+        notas.clear()
+        notas.addAll(nuevasNotas)
+        notifyDataSetChanged()
+    }
     override fun getItemCount(): Int = notas.size
 }
