@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "709420997357",
+    "project_id": "fastnotes-1b24e",
+    "storage_bucket": "fastnotes-1b24e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:709420997357:android:b9589dd0d99a385edc8ae4",
+        "android_client_info": {
+          "package_name": "com.jesus.fastnotes"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCIFHHSoxJ9NY_vshbb9L4YXoyoGlbr8mI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

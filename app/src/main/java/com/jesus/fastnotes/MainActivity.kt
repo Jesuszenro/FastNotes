@@ -1,81 +1,108 @@
 package com.jesus.fastnotes
 
-import android.app.Activity
+import android.Manifest
+import android.app.Dialog
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
-import android.util.Log
+import android.speech.SpeechRecognizer
+import android.view.View
+import android.view.ViewGroup
+import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
+import android.widget.Button
+import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
+import androidx.core.app.ActivityCompat
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
 import com.jesus.fastnotes.databinding.ActivityMainBinding
-import java.util.Locale
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private val REQUEST_CODE_SPEECH_INPUT = 100 // Código de solicitud para reconocimiento de voz
+    private lateinit var speechRecognizer: SpeechRecognizer
+    private var actualNote: String = ""
+
+    private lateinit var noteDialog: NoteDialogFragment
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Inflar la vista
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        enableEdgeToEdge()
 
-        binding.btnStartVoice.setOnClickListener() {
-            // Iniciar la actividad de reconocimiento de voz
-            Log.d("MainActivity", "Botón de reconocimiento de voz presionado")
-            startVoiceRecognition()
-        }
-        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 1)
+        // Solicitar permiso de audio
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1)
         }
 
+        // Botón para iniciar dictado
+        binding.btnStartVoice.setOnClickListener {
+            noteDialog = NoteDialogFragment()
+            noteDialog.show(supportFragmentManager, "note_dialog")
+            startListening()
+        }
+
+        // Inicializar SpeechRecognizer
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+
+        // Botón para ver notas guardadas
+        binding.btnNotes.setOnClickListener {
+            val intent = Intent(this, NotesActivity::class.java)
+            startActivity(intent)
+        }
     }
-    override fun onRequestPermissionsResult(
-        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 1 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            // Permiso concedido
-        } else {
-            // El usuario negó el permiso
-            Toast.makeText(this, "Se necesita el permiso de micrófono para dictar notas", Toast.LENGTH_LONG).show()
-        }
-    }
 
-    private fun startVoiceRecognition() {
+    private fun startListening() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            // Configuraciones adicionales para el reconocimiento de voz
-            putExtra(
-                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-            )
-            // Configura el idioma del reconocimiento de voz
-            putExtra(
-                RecognizerIntent.EXTRA_LANGUAGE,
-                Locale.getDefault()
-            )  // Idioma predeterminado por la region
-            // Configura el prompt para la actividad de reconocimiento de voz
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "Di algo")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         }
-        try {
-            startActivityForResult(intent, REQUEST_CODE_SPEECH_INPUT)
-        } catch (e: Exception) {
-            binding.tvNoteContent.text = "Tu dispositivo no soporta esta función"
-        }
+
+        speechRecognizer.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {}
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() {
+                // Ya no usamos tvListening aquí
+            }
+
+            override fun onError(error: Int) {
+                noteDialog.mostrarResultadoReconocido("Error al reconocer la voz")
+            }
+
+            override fun onResults(results: Bundle?) {
+                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                val text = matches?.get(0) ?: "No se reconoció nada"
+                binding.tvNoteContent.text = text
+                actualNote = text
+                noteDialog.mostrarResultadoReconocido(text)
+            }
+
+            override fun onPartialResults(partialResults: Bundle?) {
+                val partial = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                noteDialog.mostrarResultadoReconocido(partial?.get(0) ?: "")
+            }
+
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+
+        speechRecognizer.startListening(intent)
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_CODE_SPEECH_INPUT && resultCode == Activity.RESULT_OK && data != null) {
-                //Manejar el resultado del reconocimiento de voz
-            val result = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-            binding.tvNoteContent.text = result?.get(0) ?: "No se reconoció ningún texto"
-        }
+    override fun onDestroy() {
+        super.onDestroy()
+        speechRecognizer.destroy()
     }
 }
+
