@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.os.Bundle
+import android.view.View
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -12,6 +13,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.fragment.app.FragmentTransaction
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.chip.Chip
 import com.google.firebase.firestore.FieldValue
@@ -41,9 +43,23 @@ class NotesActivity : AppCompatActivity() {
         binding = ActivityNotesBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        adapter = NotesAdapter(notesList.toMutableList())
+        adapter = NotesAdapter(notesList.toMutableList()) { nota ->
+            val fragment = EditNoteFragment.newInstance(
+                noteId = nota.id,
+                title = nota.title,
+                content = nota.content
+            )
+            binding.fragmentContainer.visibility = View.VISIBLE
+
+            supportFragmentManager.beginTransaction()
+                .setTransition(FragmentTransaction.TRANSIT_FRAGMENT_OPEN)
+                .replace(R.id.fragment_container, fragment)
+                .addToBackStack(null)
+                .commit()
+        }
         binding.recyclerViewNotes.layoutManager = LinearLayoutManager(this)
         binding.recyclerViewNotes.adapter = adapter
+
 
         // Pedir permisos de calendario si no se han concedido
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_CALENDAR)
@@ -61,7 +77,14 @@ class NotesActivity : AppCompatActivity() {
 
         // Observar notas en Firestore
         observeNotes()
+        supportFragmentManager.addOnBackStackChangedListener {
+            if (supportFragmentManager.backStackEntryCount == 0) {
+                binding.fragmentContainer.visibility = View.GONE
+            }
+        }
+
     }
+
 
     private fun observeNotes() {
         val db = FirebaseFirestore.getInstance()
@@ -83,7 +106,12 @@ class NotesActivity : AppCompatActivity() {
                     val categoria = document.getString("category") ?: "General"
                     val yaInsertado = document.getBoolean("calendarInserted") ?: false
 
-                    val nota = Note(contenido, titulo, categoria)
+                    val nota = Note(
+                        content = contenido,
+                        title = titulo,
+                        category = categoria,
+                        id = document.id
+                    )
                     notesList.add(nota)
 
                     // Solo insertar al calendario si aún no se ha insertado

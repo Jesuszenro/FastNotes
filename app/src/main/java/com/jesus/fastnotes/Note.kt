@@ -5,4 +5,5 @@ data class Note (
     val content: String = "",
     val title: String = "",
     val category: String = "",
+    val id: String = ""
 )

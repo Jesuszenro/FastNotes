@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <EditText
+        android:id="@+id/etTitle"
+        android:hint="Título"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="18sp"/>
+
+    <EditText
+        android:id="@+id/etContent"
+        android:hint="Contenido de la nota"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="top"
+        android:inputType="textMultiLine"
+        android:minLines="10"
+        android:textSize="16sp"/>
+
+    <Button
+        android:id="@+id/btnSaveChanges"
+        android:text="Guardar cambios"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+</LinearLayout>
