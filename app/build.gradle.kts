@@ -44,7 +44,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.13.0"))
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-firestore-ktx")
-    implementation("com.google.mlkit:entity-extraction:16.0.0-beta3")
+    implementation("com.google.mlkit:entity-extraction:16.0.0-beta5")
     implementation("androidx.work:work-runtime:2.7.1")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

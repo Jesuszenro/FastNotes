@@ -1,12 +1,15 @@
 package com.jesus.fastnotes
 
 import android.app.DownloadManager
+import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -33,18 +36,36 @@ class NotesActivity : AppCompatActivity() {
         "General" to "#F5F5F5"
     )
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityNotesBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
         adapter = NotesAdapter(notesList.toMutableList())
         binding.recyclerViewNotes.layoutManager = LinearLayoutManager(this)
         binding.recyclerViewNotes.adapter = adapter
+
+        // Pedir permisos de calendario si no se han concedido
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_CALENDAR)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(android.Manifest.permission.WRITE_CALENDAR, android.Manifest.permission.READ_CALENDAR),
+                100
+            )
+        }
+
+        // Imprimir los calendarios visibles (debug)
+        CalendarHelper(this).imprimirCalendariosDisponibles()
+
+        // Observar notas en Firestore
         observeNotes()
     }
+
     private fun observeNotes() {
         val db = FirebaseFirestore.getInstance()
+        val calendarHelper = CalendarHelper(this)
 
         db.collection("notes")
             .orderBy("timestamp", Query.Direction.DESCENDING)
@@ -53,17 +74,30 @@ class NotesActivity : AppCompatActivity() {
                     Toast.makeText(this, "Error al obtener las notas", Toast.LENGTH_SHORT).show()
                     return@addSnapshotListener
                 }
+
                 notesList.clear()
+
                 for (document in snapshot!!) {
                     val contenido = document.getString("content") ?: ""
                     val titulo = document.getString("title") ?: "Sin título"
                     val categoria = document.getString("category") ?: "General"
+                    val yaInsertado = document.getBoolean("calendarInserted") ?: false
 
-                    notesList.add(Note(contenido, titulo, categoria))
+                    val nota = Note(contenido, titulo, categoria)
+                    notesList.add(nota)
+
+                    // Solo insertar al calendario si aún no se ha insertado
+                   /* if (!yaInsertado && (categoria == "Tarea" || categoria == "Evento")) {
+                        calendarHelper.extraerFechaDesdeTexto(contenido) { fecha ->
+                            if (fecha != null) {
+                                calendarHelper.insertarEventoAutomaticamente(titulo, contenido, fecha)
+                                document.reference.update("calendarInserted", true)
+                            }
+                        }
+                    }*/
                 }
-                adapter.updateNotas(notesList)
 
-                // Extraer categorías únicas y generar chips
+                adapter.updateNotas(notesList)
                 val categoriasUnicas = notesList.map { it.category }.toSet()
                 mostrarChipsDeCategorias(categoriasUnicas)
             }
@@ -79,14 +113,13 @@ class NotesActivity : AppCompatActivity() {
                 isCheckable = true
 
                 if (categoria != "Todas") {
-                    val colorHex = categoriaColorMap[categoria] ?: "#DDDDDD" // color por defecto si no está mapeado
+                    val colorHex = categoriaColorMap[categoria] ?: "#DDDDDD"
                     chipBackgroundColor = ColorStateList.valueOf(Color.parseColor(colorHex))
                     setTextColor(Color.BLACK)
                 }
             }
             binding.chipGroupCategorias.addView(chip)
         }
-
 
         binding.chipGroupCategorias.setOnCheckedStateChangeListener { group, checkedIds ->
             if (checkedIds.isNotEmpty()) {
@@ -98,6 +131,7 @@ class NotesActivity : AppCompatActivity() {
             }
         }
     }
+
     private fun filtrarNotasPorCategoria(categoria: String) {
         if (categoria == "Todas") {
             adapter.updateNotas(notesList)
@@ -106,7 +140,4 @@ class NotesActivity : AppCompatActivity() {
             adapter.updateNotas(filtradas)
         }
     }
-
-
-
 }

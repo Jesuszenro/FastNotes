@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -21,6 +22,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.mlkit.nl.entityextraction.EntityExtraction
+import com.google.mlkit.nl.entityextraction.EntityExtractorOptions
 import com.jesus.fastnotes.databinding.ActivityMainBinding
 import java.util.*
 
@@ -33,6 +36,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        descargarModeloMLKit()
         // Solicitar permiso de audio
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
@@ -50,6 +54,18 @@ class MainActivity : AppCompatActivity() {
             val intent = Intent(this, NotesActivity::class.java)
             startActivity(intent)
         }
+    }
+    private fun descargarModeloMLKit() {
+        val options = EntityExtractorOptions.Builder(EntityExtractorOptions.SPANISH).build()
+        val extractor = EntityExtraction.getClient(options)
+
+        extractor.downloadModelIfNeeded()
+            .addOnSuccessListener {
+                Log.d("MLKit", "Modelo de entidades descargado.")
+            }
+            .addOnFailureListener { e ->
+                Log.e("MLKit", "Error al descargar modelo: ${e.localizedMessage}")
+            }
     }
 }
 
