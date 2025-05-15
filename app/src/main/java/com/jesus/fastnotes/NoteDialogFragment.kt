@@ -26,6 +26,8 @@ import com.google.mlkit.nl.entityextraction.EntityExtractor
 import com.google.mlkit.nl.entityextraction.EntityExtractorOptions
 import com.google.mlkit.nl.entityextraction.EntityExtractionParams
 import com.google.mlkit.nl.entityextraction.Entity
+import java.text.SimpleDateFormat
+import java.util.Date
 
 
 class NoteDialogFragment : DialogFragment() {
@@ -134,8 +136,9 @@ class NoteDialogFragment : DialogFragment() {
             "title" to titulo,
             "category" to categoria,
             "timestamp" to FieldValue.serverTimestamp(),
-            "calendarInserted" to false // ✅ Campo de control
-        )
+            "calendarInserted" to false, // ✅ Campo de control
+            "notionInserted" to false
+            )
 
         Toast.makeText(requireContext(), "Guardando nota...", Toast.LENGTH_SHORT).show()
 
@@ -149,6 +152,25 @@ class NoteDialogFragment : DialogFragment() {
                         calendarHelper.insertarEventoAutomaticamente(titulo, nota, fecha)
                         // ✅ Marcar como insertado en Firestore
                         documentRef.update("calendarInserted", true)
+                    }
+                    if (categoria == "Tarea") {
+                        val notion = NotionTaskManager(
+                            token = "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", // 🔐 Usa tu token real
+                            databaseId = "1f4e0401555680f6bed2fb5d14c2066b\n".trim() // 📘 Usa tu Database ID real
+                        )
+
+                        // Puedes adaptar fecha si la tienes, o poner una por defecto
+                        val fechaTarea = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(
+                            Date()
+                        )
+                        notion.enviarTarea(
+                            titulo = titulo,
+                            descripcion = nota,
+                            fecha = fechaTarea
+                        )
+
+                        // ✅ Marcar como enviada a Notion (opcional si haces verificación)
+                        documentRef.update("notionInserted", true)
                     }
                     // ✅ Ocultar loading y cerrar diálogo al final
                     ocultarLoadingUI()
