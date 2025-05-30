@@ -16,40 +16,54 @@ import com.google.mlkit.nl.entityextraction.EntityExtractorOptions
 import java.text.SimpleDateFormat
 import com.google.mlkit.nl.entityextraction.*
 import java.util.Calendar
+import java.util.Date
 
 
 class CalendarHelper(private val context: Context) {
 
     fun insertarEventoAutomaticamente(
-        titulo: String, descripcion: String, fechaInicioMillis: Long, duracionMinutos: Int = 60
+        titulo: String,
+        descripcion: String,
+        fechaInicioMillis: Long,
+        duracionMinutos: Int = 60
     ) {
-        // ID del calendario: usamos el primero disponible
         val calendarId = obtenerPrimerCalendarioId() ?: run {
-            Toast.makeText(context, "No se encontró un calendario válido", Toast.LENGTH_SHORT)
-                .show()
+            Toast.makeText(context, "No se encontró un calendario válido", Toast.LENGTH_SHORT).show()
             return
         }
+
+        val zonaLocal = TimeZone.getDefault()
+        val cal = Calendar.getInstance(zonaLocal).apply {
+            timeInMillis = fechaInicioMillis
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        val startMillis = cal.timeInMillis
+        val endMillis = cal.timeInMillis + duracionMinutos * 60 * 1000
+
+        Log.d("EventoInsertado", "📅 Fecha (local): ${Date(startMillis)}")
 
         val valores = ContentValues().apply {
             put(CalendarContract.Events.CALENDAR_ID, calendarId)
             put(CalendarContract.Events.TITLE, titulo)
             put(CalendarContract.Events.DESCRIPTION, descripcion)
-            put(CalendarContract.Events.DTSTART, fechaInicioMillis)
-            put(CalendarContract.Events.DTEND, fechaInicioMillis + duracionMinutos * 60 * 1000)
-            put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
+            put(CalendarContract.Events.DTSTART, startMillis)
+            put(CalendarContract.Events.DTEND, endMillis)
+            put(CalendarContract.Events.EVENT_TIMEZONE, zonaLocal.id) // ⚠️ Este campo es crítico
         }
 
         val uri = context.contentResolver.insert(CalendarContract.Events.CONTENT_URI, valores)
 
         if (uri != null) {
-            Log.d("EventoInsertado", "Evento creado: $uri")
+            Log.d("EventoInsertado", "✅ Evento creado: $uri")
             Toast.makeText(context, "Evento agregado al calendario", Toast.LENGTH_SHORT).show()
         } else {
-            Log.e("EventoError", "Fallo al insertar evento")
+            Log.e("EventoInsertado", "❌ Error al insertar evento")
             Toast.makeText(context, "Error al insertar evento", Toast.LENGTH_SHORT).show()
         }
-
     }
+
 
     private fun obtenerPrimerCalendarioId(): Long? {
         val projection = arrayOf(
@@ -130,12 +144,14 @@ class CalendarHelper(private val context: Context) {
         val textoNormalizado = texto.lowercase().trim()
         val calendario = Calendar.getInstance()
 
-        // Registros para hora
+        Log.d("FechaParseo", "📝 Texto original: $texto")
+        Log.d("FechaParseo", "🔍 Texto normalizado: $textoNormalizado")
+
         var horaDetectada: Int? = null
         var minutosDetectados: Int = 0
 
-        // Buscar hora tipo "3 pm", "15:30", "a las 8"
-        val regexHora = Regex("""(?:a\s+las\s+)?(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|de la mañana|de la tarde|de la noche)?""")
+        // Regex para detectar hora
+        val regexHora = Regex("""(?:a\s+las\s+)?(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|pm|am|de la mañana|de la tarde|de la noche)?""")
         val match = regexHora.find(textoNormalizado)
 
         if (match != null) {
@@ -143,7 +159,8 @@ class CalendarHelper(private val context: Context) {
             minutosDetectados = match.groupValues[2].toIntOrNull() ?: 0
             val ampmRaw = match.groupValues[3].lowercase()
 
-            // Normalizar am/pm
+            Log.d("FechaParseo", "⏰ Hora cruda detectada: $horaDetectada:$minutosDetectados → $ampmRaw")
+
             if (horaDetectada != null && ampmRaw.isNotBlank()) {
                 when {
                     ampmRaw.contains("p") || ampmRaw.contains("tarde") || ampmRaw.contains("noche") -> {
@@ -153,59 +170,69 @@ class CalendarHelper(private val context: Context) {
                         if (horaDetectada == 12) horaDetectada = 0
                     }
                 }
+                Log.d("FechaParseo", "🕓 Hora ajustada a 24h: $horaDetectada:$minutosDetectados")
             }
+        } else {
+            Log.d("FechaParseo", "❗ No se detectó una hora en el texto")
         }
 
         // Fechas informales
-        return when {
+        when {
             "hoy" in textoNormalizado -> {
                 calendario.setHoraSegura(horaDetectada, minutosDetectados)
-                calendario.timeInMillis
+                Log.d("FechaParseo", "📍 Hoy: ${calendario.time} → ${calendario.timeInMillis}")
+                return calendario.timeInMillis
             }
 
             "mañana" in textoNormalizado -> {
                 calendario.add(Calendar.DAY_OF_YEAR, 1)
                 calendario.setHoraSegura(horaDetectada, minutosDetectados)
-                calendario.timeInMillis
+                Log.d("FechaParseo", "📍 Mañana: ${calendario.time} → ${calendario.timeInMillis}")
+                return calendario.timeInMillis
             }
 
             "pasado mañana" in textoNormalizado -> {
                 calendario.add(Calendar.DAY_OF_YEAR, 2)
                 calendario.setHoraSegura(horaDetectada, minutosDetectados)
-                calendario.timeInMillis
-            }
-
-            else -> {
-                val formatos = listOf(
-                    "d 'de' MMMM 'de' yyyy",
-                    "d 'de' MMMM",
-                    "d/M/yyyy",
-                    "dd/MM/yyyy",
-                    "d MMM yyyy",
-                    "EEEE d 'de' MMMM"
-                )
-
-                for (formato in formatos) {
-                    try {
-                        val sdf = SimpleDateFormat(formato, Locale("es", "ES"))
-                        sdf.timeZone = TimeZone.getDefault()
-                        val fecha = sdf.parse(textoNormalizado)
-                        if (fecha != null) {
-                            val cal = Calendar.getInstance()
-                            cal.time = fecha
-                            if (!formato.contains("yyyy")) {
-                                cal.set(Calendar.YEAR, Calendar.getInstance().get(Calendar.YEAR))
-                            }
-                            cal.setHoraSegura(horaDetectada, minutosDetectados)
-                            return cal.timeInMillis
-                        }
-                    } catch (_: Exception) {}
-                }
-
-                null
+                Log.d("FechaParseo", "📍 Pasado mañana: ${calendario.time} → ${calendario.timeInMillis}")
+                return calendario.timeInMillis
             }
         }
+
+        val formatos = listOf(
+            "d 'de' MMMM 'de' yyyy",
+            "d 'de' MMMM",
+            "d/M/yyyy",
+            "dd/MM/yyyy",
+            "d MMM yyyy",
+            "EEEE d 'de' MMMM"
+        )
+
+        for (formato in formatos) {
+            try {
+                val sdf = SimpleDateFormat(formato, Locale("es", "ES"))
+                sdf.timeZone = TimeZone.getDefault()
+                val fecha = sdf.parse(textoNormalizado)
+                if (fecha != null) {
+                    val cal = Calendar.getInstance()
+                    cal.time = fecha
+                    if (!formato.contains("yyyy")) {
+                        cal.set(Calendar.YEAR, Calendar.getInstance().get(Calendar.YEAR))
+                    }
+
+                    cal.setHoraSegura(horaDetectada, minutosDetectados)
+                    Log.d("FechaParseo", "📆 Fecha parseada con formato '$formato': ${cal.time} → ${cal.timeInMillis}")
+                    return cal.timeInMillis
+                }
+            } catch (e: Exception) {
+                Log.w("FechaParseo", "❌ Falló con formato: $formato → ${e.localizedMessage}")
+            }
+        }
+
+        Log.w("FechaParseo", "⚠️ No se pudo interpretar la fecha.")
+        return null
     }
+
 
     // Función auxiliar para configurar hora segura
     private fun Calendar.setHoraSegura(hora: Int?, minutos: Int) {
