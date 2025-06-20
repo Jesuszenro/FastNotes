@@ -45,7 +45,7 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.mlkit:entity-extraction:16.0.0-beta5")
-    implementation("androidx.work:work-runtime:2.7.1")
+    implementation("androidx.work:work-runtime:2.10.2")
     implementation ("com.google.android.gms:play-services-auth:20.7.0")
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
     implementation("org.json:json:20211205")
