@@ -48,7 +48,7 @@ dependencies {
     implementation("androidx.work:work-runtime:2.7.1")
     implementation ("com.google.android.gms:play-services-auth:20.7.0")
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
-    implementation("org.json:json:20211205")
+    implementation("org.json:json:20250517")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
